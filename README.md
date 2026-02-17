@@ -230,5 +230,4 @@ cargarTemas();
 </script>
 
 </body>
-</html># mi-app-estudio
-Plataforma personal de estudio con exámenes, IA y juegos interactivos
+</html>
