@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NayaStudy 1.0</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+<style>
+body { margin:0; font-family:'Segoe UI', sans-serif; transition: background 0.5s; }
+#inicioAnim { position:fixed; top:0; left:0; width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#c8d8ff; color:white; font-size:2em; z-index:999; opacity:1; transition: opacity 1s; }
+.cartas { display:flex; gap:15px; margin-top:20px; }
+.carta { background:white; color:#333; padding:15px; border-radius:15px; width:120px; text-align:center; box-shadow:0 5px 15px rgba(0,0,0,0.2);}
+nav { background:white; padding:10px; display:flex; gap:10px; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.1);}
+button { border:none; padding:8px 12px; border-radius:10px; background:#7b6cf6; color:white; font-weight:bold; cursor:pointer;}
+.section { padding:20px; display:none; }
+.card { background:white; padding:15px; border-radius:20px; box-shadow:0 10px 20px rgba(0,0,0,0.1); max-width:500px; margin:auto; }
+#racha { position:fixed; top:10px; right:10px; width:50px; height:50px; border-radius:50%; background:gray; color:white; display:flex; justify-content:center; align-items:center; font-weight:bold;}
+#archivosActivos { position:fixed; top:70px; right:10px; width:200px; max-height:400px; overflow:auto;}
+#asistentes { position:fixed; bottom:10px; right:10px; display:flex; flex-direction:column; gap:10px;}
+.asistente { width:50px; height:50px; border-radius:50%; background:#7b6cf6; color:white; display:flex; justify-content:center; align-items:center; font-weight:bold; cursor:pointer;}
+#chatAsistente { position:fixed; bottom:70px; right:10px; width:300px; max-height:400px; background:white; display:none; flex-direction:column; border-radius:15px; box-shadow:0 10px 20px rgba(0,0,0,0.2); overflow:auto; }
+#chatAsistente div { padding:5px 10px; }
+#chatInput { padding:5px; width:calc(100% - 20px); margin:5px; border-radius:10px; border:1px solid #ccc; }
+</style>
+</head>
+<body>
+
+<!-- Pantalla de Inicio -->
+<div id="inicioAnim">
+  <div>📖✨</div>
+  <div style="margin-top:10px;font-size:1.2em;">Bienvenido a NayaStudy</div>
+  <div id="fraseMotivacional" style="margin-top:10px;font-size:0.8em;">Aprende más cada día</div>
+  <div id="primerUsuario" class="cartas" style="display:none;">
+    <div class="carta">Exámenes</div>
+    <div class="carta">Subir Archivos</div>
+    <div class="carta">Racha</div>
+  </div>
+</div>
+
+<!-- Barra lateral -->
+<div style="position:fixed; left:0; top:0; width:200px; height:100%; background:#f5f5f5; padding:10px; box-shadow:2px 0 5px rgba(0,0,0,0.1);">
+  <div style="margin-bottom:20px;"><strong>Cuenta</strong><br><button id="googleSignInBtn">Sign-In Google</button></div>
+  <div><button onclick="showSection('subir')">Subir Archivos</button></div>
+  <div><button onclick="showSection('examen')">Exámenes</button></div>
+  <div><button onclick="showSection('juegos')">Juegos</button></div>
+  <div><button onclick="showSection('repaso')">Repaso</button></div>
+  <div><button onclick="showSection('progreso')">Progreso Semanal</button></div>
+  <div><button onclick="showSection('ayuda')">Ayuda</button></div>
+</div>
+
+<nav style="margin-left:200px;"><span style="font-weight:bold; font-size:1.2em;">NayaStudy</span></nav>
+
+<!-- Racha -->
+<div id="racha">0</div>
+
+<!-- Archivos activos -->
+<div id="archivosActivos"><strong>Archivos activos:</strong><div id="archivosList"></div></div>
+
+<!-- Asistentes -->
+<div id="asistentes">
+  <div class="asistente" title="Profesor" onclick="abrirChat('profesor')">🎓</div>
+  <div class="asistente" title="Amigo" onclick="abrirChat('amigo')">🤝</div>
+</div>
+
+<!-- Chat de Asistente -->
+<div id="chatAsistente" style="display:flex; flex-direction:column;">
+  <div id="chatMensajes" style="flex:1; overflow:auto;"></div>
+  <input id="chatInput" placeholder="Escribe tu mensaje..." />
+  <button onclick="enviarMensaje()">Enviar</button>
+</div>
+
+<!-- Secciones -->
+<div id="subir" class="section" style="margin-left:220px;">
+  <div class="card">
+    <h2>Subir Archivo</h2>
+    <input type="file" id="fileInput" multiple>
+    <button onclick="subirArchivo()">Guardar</button>
+  </div>
+</div>
+
+<div id="examen" class="section" style="margin-left:220px;">
+  <div class="card">
+    <h2>Crear Examen</h2>
+    <label>Cantidad de preguntas:</label>
+    <input type="number" id="numPreguntas" value="3">
+    <label>Tipo de pregunta:</label>
+    <select id="tipoPregunta">
+      <option value="abierta">Abierta</option>
+      <option value="multiple">Selección múltiple</option>
+      <option value="mixta">Mixta</option>
+    </select>
+    <label><input type="checkbox" id="tiempo"> Usar tiempo</label>
+    <button onclick="generarExamen()">Continuar</button>
+    <div id="preguntasExamen" style="margin-top:15px;"></div>
+  </div>
+</div>
+
+<div id="juegos" class="section" style="margin-left:220px;">
+  <div class="card">
+    <h2>Juegos Interactivos</h2>
+    <ul>
+      <li><button onclick="juegoConectar()">Conectar términos</button></li>
+      <li><button onclick="juegoCompletar()">Completar términos</button></li>
+      <li><button onclick="juegoRapido()">Estudio rápido (5 min)</button></li>
+    </ul>
+    <div id="juegoArea"></div>
+  </div>
+</div>
+
+<div id="repaso" class="section" style="margin-left:220px;"><div class="card"><h2>Repaso</h2></div></div>
+<div id="progreso" class="section" style="margin-left:220px;"><div class="card"><h2>Progreso Semanal</h2></div></div>
+<div id="ayuda" class="section" style="margin-left:220px;"><div class="card"><h2>Ayuda</h2></div></div>
+
+<script>
+// Firebase config → reemplaza con tu config
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROJECT_ID.firebaseapp.com",
+  projectId: "TU_PROJECT_ID",
+  storageBucket: "TU_PROJECT_ID.appspot.com",
+  messagingSenderId: "TU_MESSAGING_SENDER_ID",
+  appId: "TU_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
+
+let user = null;
+let archivosContenido = []; // Aquí guardamos texto de los archivos
+
+// Google Sign-In
+document.getElementById('googleSignInBtn').addEventListener('click', ()=>{
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).then(result=>{
+    user = result.user;
+    alert('Bienvenida, '+user.displayName);
+    cargarArchivosFirebase();
+  });
+});
+
+// Mostrar secciones
+function showSection(id){
+  document.querySelectorAll('.section').forEach(sec=>sec.style.display='none');
+  document.getElementById(id).style.display='block';
+}
+
+// Inicio animación
+window.onload = function(){
+  if(!localStorage.getItem('usuario')){
+    document.getElementById('primerUsuario').style.display='flex';
+    localStorage.setItem('usuario','1');
+  }
+  setTimeout(()=>{
+    document.getElementById('inicioAnim').style.opacity = 0;
+    setTimeout(()=>{document.getElementById('inicioAnim').style.display='none'},1000);
+  },2000);
+}
+
+// Subir archivos y leer contenido
+function subirArchivo(){
+  const input = document.getElementById('fileInput');
+  if(!user){ alert('Inicia sesión primero'); return;}
+  archivosContenido=[];
+  for(let file of input.files){
+    const reader = new FileReader();
+    reader.onload = function(e){
+      archivosContenido.push({name:file.name, text:e.target.result});
+    };
+    reader.readAsText(file);
+    const storageRef = storage.ref().child(user.uid+'/'+file.name);
+    storageRef.put(file).then(()=>{ cargarArchivosFirebase(); });
+  }
+  input.value='';
+}
+
+function cargarArchivosFirebase(){
+  const list = document.getElementById('archivosList');
+  list.innerHTML='';
+  if(!user) return;
+  storage.ref().child(user.uid+'/').listAll().then(res=>{
+    res.items.forEach(item=>{
+      const div = document.createElement('div'); div.innerText = item.name;
+      list.appendChild(div);
+    });
+  });
+}
+
+// Generar examen desde archivos
+function generarExamen(){
+  const cont = document.getElementById('preguntasExamen');
+  cont.innerHTML='';
+  const cantidad = parseInt(document.getElementById('numPreguntas').value);
+  const tipo = document.getElementById('tipoPregunta').value;
+  if(archivosContenido.length===0){ alert('Sube archivos primero'); return;}
+  for(let i=1;i<=cantidad;i++){
+    const archivo = archivosContenido[Math.floor(Math.random()*archivosContenido.length)];
+    const lineas = archivo.text.split('\n').filter(l=>l.trim()!=='');
+    const pregunta = lineas[Math.floor(Math.random()*lineas.length)];
+    const p = document.createElement('p'); p.innerText = 'Pregunta '+i+': '+pregunta; cont.appendChild(p);
+    if(tipo==='abierta'||tipo==='mixta'){ const input = document.createElement('input'); cont.appendChild(input);}
+    if(tipo==='multiple'||tipo==='mixta'){
+      for(let j=0;j<4;j++){
+        const opcion = lineas[Math.floor(Math.random()*lineas.length)];
+        const btn = document.createElement('button'); btn.innerText = opcion; cont.appendChild(btn);
+      }
+    }
+  }
+}
+
+// Juegos dinámicos
+function juegoConectar(){
+  if(archivosContenido.length===0){ alert('Sube archivos primero'); return;}
+  let juegoArea=document.getElementById('juegoArea');
+  juegoArea.innerHTML='<b>Conectar términos:</b><br>';
+  const archivo=archivosContenido[Math.floor(Math.random()*archivosContenido.length)];
+  const lineas=archivo.text.split('\n').filter(l=>l.trim()!=='').slice(0,5);
+  lineas.forEach(l=>{ juegoArea.innerHTML+=l+' 🔗 <input placeholder="Escribe conexión"><br>'; });
+}
+
+function juegoCompletar(){
+  if(archivosContenido.length===0){ alert('Sube archivos primero'); return;}
+  let juegoArea=document.getElementById('juegoArea');
+  juegoArea.innerHTML='<b>Completar términos:</b><br>';
+  const archivo=archivosContenido[Math.floor(Math.random()*archivosContenido.length)];
+  const lineas=archivo.text.split('\n').filter(l=>l.trim()!=='').slice(0,5);
+  lineas.forEach(l=>{
+    const palabras=l.split(' '); palabras[Math.floor(Math.random()*palabras.length)]='____';
+    juegoArea.innerHTML+=palabras.join(' ')+'<br>';
+  });
+}
+
+function juegoRapido(){ generarExamen(); }
